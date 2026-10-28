@@ -1,0 +1,69 @@
+name: Instagram Reels
+
+on:
+  schedule:
+    - cron: "23 15 * * *"   # every day 15:23 UTC = 18:23 Istanbul = late morning in the US
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "generate = make a new Reel, publish = post the waiting Reel, discard = throw it away"
+        type: choice
+        options: [generate, publish, discard]
+        default: generate
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-write
+  cancel-in-progress: false
+
+env:
+  ACTION: ${{ inputs.action || 'generate' }}
+  IG_MODE: ${{ vars.IG_MODE || 'preview' }}   # set repo variable IG_MODE=auto to post without review
+
+jobs:
+  reel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ffmpeg and fonts
+        if: env.ACTION == 'generate'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+
+      - name: Run ${{ env.ACTION }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ vars.IG_USER_ID }}
+        run: python scripts/instagram_reel.py "$ACTION"
+
+      - name: Save results
+        run: |
+          git config user.name "zehnur-bot"
+          git config user.email "zehnur-bot@users.noreply.github.com"
+          git add -A state.json docs
+          if ! git diff --cached --quiet; then
+            git commit -m "instagram: $ACTION"
+            git pull --rebase --quiet
+            git push --quiet
+          fi
+
+      - name: Auto-publish (only when IG_MODE=auto)
+        if: env.ACTION == 'generate' && env.IG_MODE == 'auto'
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ vars.IG_USER_ID }}
+        run: |
+          python scripts/instagram_reel.py publish
+          git add -A state.json docs
+          if ! git diff --cached --quiet; then
+            git commit -m "instagram: auto-publish"
+            git pull --rebase --quiet
+            git push --quiet
+          fi

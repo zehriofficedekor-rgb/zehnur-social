@@ -1,0 +1,43 @@
+name: Pinterest Pins
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"   # every 6 hours
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-write
+  cancel-in-progress: false
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create pin
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+          PINTEREST_ACCESS_TOKEN: ${{ secrets.PINTEREST_ACCESS_TOKEN }}
+          PINTEREST_BOARD_ID: ${{ vars.PINTEREST_BOARD_ID }}
+          USE_AI_PIN_IMAGE: ${{ vars.USE_AI_PIN_IMAGE || '1' }}
+        run: python scripts/pinterest_post.py
+
+      - name: Save results
+        run: |
+          git config user.name "zehnur-bot"
+          git config user.email "zehnur-bot@users.noreply.github.com"
+          git add -A state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "pinterest: new pin"
+            git pull --rebase --quiet
+            git push --quiet
+          fi
