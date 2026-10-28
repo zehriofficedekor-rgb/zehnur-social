@@ -158,7 +158,7 @@ def wait_public(url, timeout=600):
 
 def publish():
     require_env("IG_ACCESS_TOKEN")
-    ig_user = os.environ.get("IG_USER_ID", "17841423562721220")
+    ig_user = os.environ.get("IG_USER_ID") or "17841423562721220"
     token = os.environ["IG_ACCESS_TOKEN"]
     state = load_state()
     pending = state.get("instagram_pending")
