@@ -50,12 +50,12 @@ Return JSON with:
 def make_video(product, copy, workdir):
     scene_prompt = (
         f"Place this exact product in this setting: {copy['scene']}. Keep the pouch, its label text and the "
-        "ingredients exactly as they are; do not add any text. Realistic warm photo, vertical 9:16 framing, "
-        "product in the lower-middle of the frame, empty space at the top."
+        "ingredients exactly as they are; do not add any text. No people, no hands. Realistic warm photo, "
+        "vertical 9:16 framing, product in the lower-middle of the frame, empty space at the top."
     )
     still = replicate_run(IMAGE_MODEL, {"prompt": scene_prompt, "input_image": product["img"],
                                         "aspect_ratio": "9:16", "output_format": "jpg"})
-    clip = replicate_run(VIDEO_MODEL, {"image": still, "prompt": copy["motion"] + " Realistic, subtle, no text.",
+    clip = replicate_run(VIDEO_MODEL, {"image": still, "prompt": copy["motion"] + " Realistic, subtle, static product. No people, no hands, no text.",
                                        "num_frames": 81, "resolution": "480p", "frames_per_second": 16},
                          max_wait=1200)
     raw = download(clip, workdir / "raw.mp4")
@@ -64,13 +64,18 @@ def make_video(product, copy, workdir):
 
 def burn_hook(raw, hook, out):
     """Upscale to 720x1280, draw the hook text at the top, add a silent audio track."""
-    textfile = out.parent / (out.stem + "_hook.txt")
-    textfile.write_text("\n".join(textwrap.wrap(hook.upper(), 16)))
-    vf = (
-        "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,"
-        f"drawtext=fontfile='{FONT}':textfile='{textfile}':fontcolor=white:fontsize=54:line_spacing=12:"
-        "box=1:boxcolor=black@0.45:boxborderw=24:x=(w-text_w)/2:y=h*0.12"
-    )
+    # One drawtext per line: multi-line text files render a stray box glyph at each line break.
+    lines = textwrap.wrap(hook.upper(), 16)[:4]
+    textfiles, filters = [], ["scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280"]
+    for i, line in enumerate(lines):
+        tf = out.parent / f"{out.stem}_hook{i}.txt"
+        tf.write_text(line)
+        textfiles.append(tf)
+        filters.append(
+            f"drawtext=fontfile='{FONT}':textfile='{tf}':fontcolor=white:fontsize=54:"
+            f"box=1:boxcolor=black@0.45:boxborderw=14:x=(w-text_w)/2:y=h*0.10+{i * 78}"
+        )
+    vf = ",".join(filters)
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(raw),
            "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
            "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
@@ -82,7 +87,8 @@ def burn_hook(raw, hook, out):
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(raw), "-c:v", "libx264",
                         "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out)], check=True)
     finally:
-        textfile.unlink(missing_ok=True)
+        for tf in textfiles:
+            tf.unlink(missing_ok=True)
 
 
 def full_caption(copy):
@@ -125,7 +131,7 @@ def generate():
     product = next_product("instagram", state)
     copy = reel_copy(product)
     REELS_DIR.mkdir(parents=True, exist_ok=True)
-    stamp = dt.datetime.utcnow().strftime("%Y%m%d-%H%M")
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M")
     name = f"{stamp}-{product['id']}.mp4"
     with tempfile.TemporaryDirectory() as tmp:
         still, raw = make_video(product, copy, pathlib.Path(tmp))
