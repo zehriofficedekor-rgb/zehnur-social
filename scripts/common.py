@@ -54,28 +54,36 @@ def require_env(*names):
 
 
 # ---------------------------------------------------------------- Claude
-def claude_json(system, prompt, max_tokens=1200):
-    """Ask Claude for a JSON object and return it as a dict."""
+def claude_json(system, prompt, max_tokens=4000):
+    """Ask Claude for a JSON object and return it as a dict (one retry if the reply is cut off)."""
     require_env("ANTHROPIC_API_KEY")
-    res = http(
-        "POST",
-        "https://api.anthropic.com/v1/messages",
-        headers={
-            "x-api-key": os.environ["ANTHROPIC_API_KEY"],
-            "anthropic-version": "2023-06-01",
-        },
-        body={
-            "model": CLAUDE_MODEL,
-            "max_tokens": max_tokens,
-            "system": system + "\nReply with ONE valid JSON object only. No markdown, no commentary.",
-            "messages": [{"role": "user", "content": prompt}],
-        },
-    )
-    text = "".join(b.get("text", "") for b in res.get("content", []) if b.get("type") == "text").strip()
-    start, end = text.find("{"), text.rfind("}")
-    if start == -1 or end == -1:
-        raise RuntimeError(f"Claude did not return JSON: {text[:300]}")
-    return json.loads(text[start : end + 1])
+    last = ""
+    for attempt in range(2):
+        res = http(
+            "POST",
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": os.environ["ANTHROPIC_API_KEY"],
+                "anthropic-version": "2023-06-01",
+            },
+            body={
+                "model": CLAUDE_MODEL,
+                "max_tokens": max_tokens,
+                "system": system + "\nReply with ONE valid JSON object only. No markdown, no commentary. "
+                          "Keep every field short and within the stated limits.",
+                "messages": [{"role": "user", "content": prompt}],
+            },
+        )
+        text = "".join(b.get("text", "") for b in res.get("content", []) if b.get("type") == "text").strip()
+        start, end = text.find("{"), text.rfind("}")
+        if start != -1 and end > start:
+            try:
+                return json.loads(text[start : end + 1])
+            except json.JSONDecodeError:
+                pass
+        last = f"stop_reason={res.get('stop_reason')} text={text[:300]}"
+        print(f"Claude reply was not valid JSON (attempt {attempt + 1}): {last}")
+    raise RuntimeError(f"Claude did not return JSON: {last}")
 
 
 # ---------------------------------------------------------------- Replicate
