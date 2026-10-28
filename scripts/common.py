@@ -91,8 +91,16 @@ def replicate_run(model, inputs, max_wait=900):
     """Run an official Replicate model and return its output (usually a URL)."""
     require_env("REPLICATE_API_TOKEN")
     headers = {"Authorization": f"Bearer {os.environ['REPLICATE_API_TOKEN']}", "Prefer": "wait=60"}
-    pred = http("POST", f"https://api.replicate.com/v1/models/{model}/predictions",
-                headers=headers, body={"input": inputs})
+    for attempt in range(8):  # low-credit accounts are throttled to ~1 request at a time
+        try:
+            pred = http("POST", f"https://api.replicate.com/v1/models/{model}/predictions",
+                        headers=headers, body={"input": inputs})
+            break
+        except RuntimeError as e:
+            if "HTTP 429" not in str(e) or attempt == 7:
+                raise
+            print(f"Replicate is throttling, waiting 15s (attempt {attempt + 1})")
+            time.sleep(15)
     waited = 0
     while pred.get("status") not in ("succeeded", "failed", "canceled"):
         if waited > max_wait:
