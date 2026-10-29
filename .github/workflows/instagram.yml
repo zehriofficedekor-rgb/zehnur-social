@@ -10,6 +10,10 @@ on:
         type: choice
         options: [generate, publish, discard]
         default: generate
+      story:
+        description: "Use the next uploaded story clip today (ignore the Tue/Thu/Sat schedule)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -28,6 +32,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed to order story clips by upload time
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -41,6 +47,8 @@ jobs:
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           IG_USER_ID: ${{ vars.IG_USER_ID }}
+          FORCE_STORY: ${{ inputs.story && '1' || '0' }}
+          STORY_DAYS: ${{ vars.STORY_DAYS }}
         run: python scripts/instagram_reel.py "$ACTION"
 
       - name: Save results
