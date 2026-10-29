@@ -2,8 +2,17 @@ name: Pinterest Pins
 
 on:
   schedule:
-    - cron: "17 */6 * * *"   # every 6 hours
+    - cron: "43 9 * * 0"   # every Sunday 12:43 Istanbul: makes next week's Pins + CSV
   workflow_dispatch:
+    inputs:
+      start_date:
+        description: "First publish day (YYYY-MM-DD). Empty = tomorrow"
+        required: false
+        default: ""
+      count:
+        description: "How many Pins (4 per day)"
+        required: false
+        default: "28"
 
 permissions:
   contents: write
@@ -13,31 +22,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  pin:
+  pins:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Create pin
+      - name: Make the week's Pins
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
-          PINTEREST_ACCESS_TOKEN: ${{ secrets.PINTEREST_ACCESS_TOKEN }}
-          PINTEREST_BOARD_ID: ${{ vars.PINTEREST_BOARD_ID }}
+          PINTEREST_BOARD: ${{ vars.PINTEREST_BOARD }}
           USE_AI_PIN_IMAGE: ${{ vars.USE_AI_PIN_IMAGE || '1' }}
-        run: python scripts/pinterest_post.py
+          START_DATE: ${{ inputs.start_date }}
+          PIN_COUNT: ${{ inputs.count }}
+        run: cd scripts && python pinterest_batch.py
 
       - name: Save results
+        if: always()
         run: |
           git config user.name "zehnur-bot"
           git config user.email "zehnur-bot@users.noreply.github.com"
-          git add -A state.json
+          git add -A state.json docs/pins
           if ! git diff --cached --quiet; then
-            git commit -m "pinterest: new pin"
+            git commit -m "pinterest: weekly batch"
             git pull --rebase --quiet
             git push --quiet
           fi
