@@ -1,0 +1,37 @@
+{
+  "series": "From Antalya to Your Stove",
+  "note": "Episodes are posted in this order, one per story day (Tue/Thu/Sat), using the clips uploaded to docs/stories/inbox in upload order. 'brief' feeds Claude's caption. 'gemini_prompt' is what Nuri pastes into Gemini (Veo).",
+  "label": "a kraft paper stand-up pouch with a clear window showing dried orange slices, cinnamon sticks and star anise, and a cream label with a small watercolor orange illustration and the words 'Christmas Morning Magic'",
+  "episodes": [
+    {
+      "id": 1, "week": 1, "title": "Where it starts",
+      "brief": "Episode 1. Dawn in our family orange orchard in Antalya. Every winter the whole valley smells like oranges and spice; that smell is what we send to customers. Introduce the series.",
+      "gemini_prompt": "Vertical 9:16 cinematic video, 8 seconds, photorealistic. Golden sunrise in a Mediterranean orange orchard on the hills of Antalya, Turkey, the sea glowing softly in the distance. Close-up: a man's weathered hands gently twist a ripe, dew-covered orange from its branch and place it in a woven basket full of oranges. Slow dolly-in, soft lens flare, shallow depth of field, light breeze moving the leaves. Sound: birdsong, leaves rustling, soft acoustic guitar. A warm, friendly female voice-over in American English says: \"This is our family's orange orchard in Antalya. Every winter, it smells like Christmas. So we decided to send it to you.\" No on-screen text, no subtitles, no captions."
+    },
+    {
+      "id": 2, "week": 1, "title": "My uncle's spice shop",
+      "brief": "Episode 2. The cinnamon sticks, cloves and star anise come from my uncle's wholesale spice shop in Eminonu, Istanbul's historic spice bazaar.",
+      "gemini_prompt": "Vertical 9:16 cinematic video, 8 seconds, photorealistic. Inside a small, old wholesale spice shop in Istanbul's Eminonu spice bazaar: burlap sacks overflowing with cinnamon sticks, star anise and cloves, warm hanging lamps, wooden shelves with glass jars. Close-up: an older man's hands scoop star anise with a brass scoop onto an old brass scale; dust of spice glows in a beam of light. Slow handheld push-in, shallow depth of field. Sound: soft bazaar murmur in the background, the clink of the brass scoop, gentle acoustic guitar continuing the same melody. A warm female voice-over in American English says: \"The cinnamon and star anise come from my uncle's spice shop, in Istanbul's old spice bazaar.\" No on-screen text, no subtitles, no captions."
+    },
+    {
+      "id": 3, "week": 1, "title": "In her kitchen",
+      "brief": "Episode 3. The finished kit arrives in a cozy American kitchen in winter: pour the pouch into a pot of water and let it simmer; a bulk gift of 12 pouches for teachers, neighbors and friends.",
+      "gemini_prompt": "Vertical 9:16 cinematic video, 8 seconds, photorealistic. A cozy American farmhouse kitchen on a snowy winter morning, snow falling outside the window, Christmas lights softly blurred. A woman in a cream knit sweater opens a kraft paper stand-up pouch with a clear window showing dried orange slices, cinnamon sticks and star anise, and a cream label with a small watercolor orange illustration, and pours it into a white enamel pot of water on the stove. Steam begins to rise; she closes her eyes and smiles as the scent fills the room. Slow push-in, warm golden light, shallow depth of field. Sound: gentle simmering, soft acoustic guitar. A warm female voice-over in American English says: \"Just add water and let it simmer. Twelve little pouches, one for everyone on your list.\" No on-screen text, no subtitles, no captions."
+    },
+    {"id": 4, "week": 2, "title": "Sun-dried by hand", "brief": "Episode 4. We slice our oranges thin by hand and dry them on wooden racks in the Mediterranean sun."},
+    {"id": 5, "week": 2, "title": "Packed in Istanbul", "brief": "Episode 5. Every kraft pouch is blended and packed by hand in our Istanbul workshop."},
+    {"id": 6, "week": 2, "title": "Your name on it", "brief": "Episode 6. Personalized labels: a teacher's name, a company logo or a wedding couple's names on every pouch."},
+    {"id": 7, "week": 3, "title": "For the teacher", "brief": "Episode 7. A teacher opens a pouch with her name on the label from her class; the smell of oranges and cinnamon fills the classroom."},
+    {"id": 8, "week": 3, "title": "For the whole office", "brief": "Episode 8. Twelve pouches on an office table before the holiday party; coworker and client gifts that feel personal."},
+    {"id": 9, "week": 3, "title": "For the wedding guests", "brief": "Episode 9. Winter wedding favors: pouches on every guest's place card with the couple's names."},
+    {"id": 10, "week": 4, "title": "Forty years", "brief": "Episode 10. An elderly man smells the simmering pot and remembers his mother's kitchen at Christmas, forty years ago. Part 1 of a two-part story."},
+    {"id": 11, "week": 4, "title": "From Istanbul to your porch", "brief": "Episode 11. The journey: pouches boxed in Istanbul, shipped, and arriving on a snowy front porch."},
+    {"id": 12, "week": 4, "title": "The hostess gift", "brief": "Episode 12. A guest arrives at a holiday dinner with a pouch; the host puts it on the stove and the house fills with the scent."},
+    {"id": 13, "week": 5, "title": "Forty years, part 2", "brief": "Episode 13. Part 2: the elderly man shares the simmer pot with his grandchildren; the tradition continues.", "cta": "End with a gentle reminder that Christmas orders are filling up and to order early, then: \"Tap the link in our bio to order 🎄\""},
+    {"id": 14, "week": 5, "title": "Three steps", "brief": "Episode 14. How to use it in three steps: pour, add water, simmer on low and top up the water.", "cta": "End with a gentle reminder to order early for Christmas, then: \"Tap the link in our bio to order 🎄\""},
+    {"id": 15, "week": 5, "title": "Christmas is close", "brief": "Episode 15. The last weeks before Christmas in the orchard and the workshop; we are packing as fast as we can.", "cta": "End with a clear but friendly reminder that this is the last stretch to order for Christmas, then: \"Tap the link in our bio to order 🎄\""},
+    {"id": 16, "week": 6, "title": "Christmas morning", "brief": "Episode 16. Christmas morning in a family home, the pot simmering while presents are opened.", "cta": "End with a clear last-call reminder to order now for Christmas, then: \"Tap the link in our bio to order 🎄\""},
+    {"id": 17, "week": 6, "title": "Last call", "brief": "Episode 17. Last call for Christmas orders, shown with the orchard, the spice shop and the workshop in quick cuts.", "cta": "End with a clear last-call reminder to order now for Christmas, then: \"Tap the link in our bio to order 🎄\""},
+    {"id": 18, "week": 6, "title": "Thank you from Antalya", "brief": "Episode 18. Sunset in the Antalya orchard: thank you to everyone who brought our oranges into their home this year."}
+  ]
+}
