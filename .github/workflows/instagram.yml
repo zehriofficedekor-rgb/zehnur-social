@@ -3,6 +3,7 @@ name: Instagram Reels
 on:
   schedule:
     - cron: "23 15 * * *"   # every day 15:23 UTC = 18:23 Istanbul = late morning in the US
+    - cron: "23 16 * * *"   # backup slot if GitHub skips the first one (script posts once per day)
   workflow_dispatch:
     inputs:
       action:
@@ -48,6 +49,7 @@ jobs:
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           IG_USER_ID: ${{ vars.IG_USER_ID }}
           FORCE_STORY: ${{ inputs.story && '1' || '0' }}
+          EVENT: ${{ github.event_name }}
           STORY_DAYS: ${{ vars.STORY_DAYS }}
         run: python scripts/instagram_reel.py "$ACTION"
 
