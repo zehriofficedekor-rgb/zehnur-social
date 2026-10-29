@@ -239,6 +239,13 @@ def generate():
     if state.get("instagram_pending") and os.environ.get("IG_MODE", "preview") != "auto":
         print("A Reel is still waiting for approval - not generating another one.")
         return 0
+    if os.environ.get("EVENT") == "schedule":
+        # Two cron slots exist (GitHub sometimes delays or skips one); post at most once per day.
+        today = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d")
+        recent = (state.get("instagram_log") or [])[-3:] + [state.get("instagram_pending") or {}]
+        if any(str(p.get("created", "")).startswith(today) for p in recent):
+            print("Already posted today - skipping this scheduled run.")
+            return 0
     story_day = dt.datetime.now(dt.timezone.utc).weekday() in STORY_DAYS
     if (story_day or os.environ.get("FORCE_STORY") == "1") and make_story(state):
         return 0
