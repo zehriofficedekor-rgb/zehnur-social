@@ -9,6 +9,7 @@ The video is served from GitHub Pages because Instagram must fetch it from a pub
 """
 import datetime as dt
 import html
+import json
 import os
 import pathlib
 import subprocess
@@ -27,6 +28,15 @@ VIDEO_MODEL = os.environ.get("VIDEO_MODEL", "wan-video/wan-2.2-i2v-fast")
 PAGES_BASE = os.environ.get("PAGES_BASE", "https://zehriofficedekor-rgb.github.io/zehnur-social").rstrip("/")
 MOTION_MODE = os.environ.get("MOTION_MODE") or "kenburns"   # "kenburns" (safe) or "wan" (AI video)
 REELS_DIR = ROOT / "docs" / "reels"
+INBOX = ROOT / "docs" / "stories" / "inbox"          # Nuri drops Gemini story clips here
+STORIES_FILE = ROOT / "stories.json"                  # episode briefs, in posting order
+STORY_DAYS = {int(d) for d in (os.environ.get("STORY_DAYS") or "1,3,5").split(",")}  # Tue, Thu, Sat
+FAMILY_STORY = (
+    "Our story (true, you may use it): the oranges come from our own family orchard in Antalya on Turkey's "
+    "Mediterranean coast; we slice and dry them in the sun. The cinnamon, cloves and star anise come from my "
+    "uncle's wholesale spice shop in Eminonu, Istanbul's historic spice bazaar. We blend and pack every kraft "
+    "pouch by hand in Istanbul and ship to homes in the US and worldwide through our Etsy shop ZehnurFavors."
+)
 FONT = os.environ.get("HOOK_FONT", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
 
 
@@ -76,10 +86,19 @@ def make_video(product, copy, workdir):
     return still, raw
 
 
-def burn_hook(raw, hook, out):
-    """Upscale to 720x1280, draw the hook text at the top, add a silent audio track."""
+def has_audio(path):
+    r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index",
+                        "-of", "csv=p=0", str(path)], capture_output=True, text=True)
+    return bool(r.stdout.strip())
+
+
+def burn_hook(raw, hook, out, until=None):
+    """Fit to 720x1280 and draw the hook text at the top.
+    Keeps the clip's own audio (e.g. Gemini voice-over); adds a silent track if there is none.
+    `until` = seconds to show the hook (story clips), None = whole video."""
     # One drawtext per line: multi-line text files render a stray box glyph at each line break.
     lines = textwrap.wrap(hook.upper(), 16)[:4]
+    enable = f":enable='lt(t,{until})'" if until else ""
     textfiles, filters = [], ["scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280"]
     for i, line in enumerate(lines):
         tf = out.parent / f"{out.stem}_hook{i}.txt"
@@ -87,13 +106,16 @@ def burn_hook(raw, hook, out):
         textfiles.append(tf)
         filters.append(
             f"drawtext=fontfile='{FONT}':textfile='{tf}':fontcolor=white:fontsize=54:"
-            f"box=1:boxcolor=black@0.45:boxborderw=14:x=(w-text_w)/2:y=h*0.10+{i * 78}"
+            f"box=1:boxcolor=black@0.45:boxborderw=14:x=(w-text_w)/2:y=h*0.10+{i * 78}{enable}"
         )
     vf = ",".join(filters)
-    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(raw),
-           "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
-           "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-           "-r", "30", "-c:a", "aac", "-shortest", "-movflags", "+faststart", str(out)]
+    audio = has_audio(raw)
+    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(raw)]
+    if not audio:
+        cmd += ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
+    cmd += ["-vf", vf, "-map", "0:v:0", "-map", "0:a:0" if audio else "1:a:0",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+            "-r", "30", "-c:a", "aac", "-shortest", "-movflags", "+faststart", str(out)]
     try:
         subprocess.run(cmd, check=True)
     except Exception as e:
@@ -136,11 +158,67 @@ video{{width:100%;border-radius:8px;background:#000}}.tag{{font-size:.85em;color
 
 
 # ---------------------------------------------------------------- commands
+def inbox_videos():
+    """Story clips Nuri uploaded, oldest upload first (git add time; file name as tie-breaker)."""
+    if not INBOX.exists():
+        return []
+    vids = [p for p in INBOX.iterdir() if p.suffix.lower() in (".mp4", ".mov", ".m4v")]
+
+    def added(p):
+        r = subprocess.run(["git", "log", "--diff-filter=A", "--format=%ct", "-1", "--", str(p)],
+                           capture_output=True, text=True, cwd=ROOT)
+        return int(r.stdout.strip() or 0)
+    return sorted(vids, key=lambda p: (added(p), p.name))
+
+
+def story_copy(episode):
+    return claude_json(
+        BRAND_SYSTEM + " " + FAMILY_STORY,
+        f"""Write the Instagram copy for one episode of our Reel series "From Antalya to Your Stove".
+Episode brief: {episode.get('brief', 'A behind-the-scenes clip of how our simmer pot kits are made and enjoyed.')}
+
+Return JSON with:
+- "hook": on-screen text for the first 3 seconds, max 7 words, curiosity-driven, no emojis
+- "caption": 300-700 characters. Tell this episode's moment in a warm first-person-plural voice ("we", "my uncle"),
+  connect it to how the kit feels in a customer's home, mention it is a bulk-friendly gift (minimum 12, personalized labels).
+  {episode.get('cta', 'End with: "Tap the link in our bio to order 🎄"')}. Use 1-3 emojis. Only state facts given above.
+- "hashtags": list of 10 relevant hashtags without the # sign""",
+    )
+
+
+def make_story(state):
+    vids = inbox_videos()
+    if not vids:
+        return False
+    episodes = json.loads(STORIES_FILE.read_text())["episodes"] if STORIES_FILE.exists() else []
+    idx = state.get("story_index", 0)
+    episode = episodes[idx] if idx < len(episodes) else {}
+    copy = story_copy(episode)
+    REELS_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M")
+    name = f"{stamp}-story{idx + 1:02d}.mp4"
+    src = vids[0]
+    burn_hook(src, copy["hook"], REELS_DIR / name, until=3)
+    src.unlink()  # consumed; the committed workflow removes it from the inbox
+    state["story_index"] = idx + 1
+    state["instagram_pending"] = {
+        "file": name, "listing": "story", "episode": episode.get("id", idx + 1), "hook": copy["hook"],
+        "caption": full_caption(copy), "created": stamp, "source": src.name,
+    }
+    write_preview_page(state)
+    save_state(state)
+    print(f"Story episode {idx + 1} ready from {src.name}: {PAGES_BASE}/reels/{name}")
+    return True
+
+
 def generate():
     require_env("ANTHROPIC_API_KEY", "REPLICATE_API_TOKEN")
     state = load_state()
     if state.get("instagram_pending") and os.environ.get("IG_MODE", "preview") != "auto":
         print("A Reel is still waiting for approval - not generating another one.")
+        return 0
+    story_day = dt.datetime.now(dt.timezone.utc).weekday() in STORY_DAYS
+    if (story_day or os.environ.get("FORCE_STORY") == "1") and make_story(state):
         return 0
     product = next_product("instagram", state)
     copy = reel_copy(product)
