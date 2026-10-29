@@ -25,6 +25,7 @@ GRAPH = "https://graph.facebook.com/" + os.environ.get("GRAPH_VERSION", "v26.0")
 IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "black-forest-labs/flux-kontext-pro")
 VIDEO_MODEL = os.environ.get("VIDEO_MODEL", "wan-video/wan-2.2-i2v-fast")
 PAGES_BASE = os.environ.get("PAGES_BASE", "https://zehriofficedekor-rgb.github.io/zehnur-social").rstrip("/")
+MOTION_MODE = os.environ.get("MOTION_MODE") or "kenburns"   # "kenburns" (safe) or "wan" (AI video)
 REELS_DIR = ROOT / "docs" / "reels"
 FONT = os.environ.get("HOOK_FONT", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
 
@@ -55,6 +56,19 @@ def make_video(product, copy, workdir):
     )
     still = replicate_run(IMAGE_MODEL, {"prompt": scene_prompt, "input_image": product["img"],
                                         "aspect_ratio": "9:16", "output_format": "jpg"})
+    if MOTION_MODE != "wan":
+        # Safe motion: slow push-in on the clean still. No AI-invented hands, label stays sharp.
+        img = download(still, workdir / "still.jpg")
+        raw = workdir / "raw.mp4"
+        frames = 150  # 5 s at 30 fps
+        subprocess.run([
+            "ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-i", str(img),
+            "-vf", ("scale=2160:3840:force_original_aspect_ratio=increase,crop=2160:3840,"
+                    f"zoompan=z='1+0.10*on/{frames}':x='iw/2-(iw/zoom/2)':"
+                    f"y='ih/2-(ih/zoom/2)-ih*0.02*on/{frames}':d={frames}:s=720x1280:fps=30"),
+            "-frames:v", str(frames), "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+            "-pix_fmt", "yuv420p", str(raw)], check=True)
+        return still, raw
     clip = replicate_run(VIDEO_MODEL, {"image": still, "prompt": copy["motion"] + " Realistic, subtle, static product. No people, no hands, no text.",
                                        "num_frames": 81, "resolution": "480p", "frames_per_second": 16},
                          max_wait=1200)
