@@ -12,6 +12,7 @@ import html
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -92,6 +93,27 @@ def has_audio(path):
     return bool(r.stdout.strip())
 
 
+def bar_crop(raw):
+    """Crop filter that removes black letterbox bars (AI clips sometimes have them), or ''."""
+    try:
+        r = subprocess.run(["ffmpeg", "-i", str(raw), "-vf", "cropdetect=24:2:0", "-f", "null", "-"],
+                           capture_output=True, text=True, timeout=120)
+        crops = re.findall(r"crop=(\d+):(\d+):(\d+):(\d+)", r.stderr)
+        if not crops:
+            return ""
+        w, h, x, y = max(set(crops), key=crops.count)
+        dims = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                               "stream=width,height", "-of", "csv=p=0", str(raw)],
+                              capture_output=True, text=True).stdout.strip().split(",")
+        W, H = int(dims[0]), int(dims[1])
+        if int(w) * int(h) < 0.95 * W * H and int(w) > W * 0.6 and int(h) > H * 0.6:
+            print(f"Removing black bars: crop={w}:{h}:{x}:{y}")
+            return f"crop={w}:{h}:{x}:{y},"
+    except Exception as e:
+        print(f"Bar detection skipped ({e})")
+    return ""
+
+
 def burn_hook(raw, hook, out, until=None):
     """Fit to 720x1280 and draw the hook text at the top.
     Keeps the clip's own audio (e.g. Gemini voice-over); adds a silent track if there is none.
@@ -99,7 +121,7 @@ def burn_hook(raw, hook, out, until=None):
     # One drawtext per line: multi-line text files render a stray box glyph at each line break.
     lines = textwrap.wrap(hook.upper(), 16)[:4]
     enable = f":enable='lt(t,{until})'" if until else ""
-    textfiles, filters = [], ["scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280"]
+    textfiles, filters = [], [bar_crop(raw) + "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280"]
     for i, line in enumerate(lines):
         tf = out.parent / f"{out.stem}_hook{i}.txt"
         tf.write_text(line)
